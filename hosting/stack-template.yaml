@@ -1,0 +1,292 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  AppName:
+    Description: "Name of the application"
+    Type: String
+    AllowedPattern: "[a-z0-9-]+"
+    ConstraintDescription: "must only contain lowercase letters, numbers and hyphens"
+  DockerImage:
+    Description: "Docker image to use (including tag)"
+    Type: String
+  DbHost:
+    Description: "Database server hostname"
+    Type: String
+  DbName:
+    Description: "Name of the database"
+    Type: String
+  DbUsername:
+    Description: "Database username"
+    Type: String
+  DbPassword:
+    Description: "Database password"
+    Type: String
+    NoEcho: 'true'
+  DbPort:
+    Description: "Database tcp port"
+    Type: String
+  Environment:
+    Description: "The environment this application should run in."
+    Type: String
+    Default: development
+    AllowedValues:
+      - development
+      - staging
+      - production
+  RequiresS3:
+    Description: "If site uses s3"
+    Type: String
+    Default: "false"
+    AllowedValues:
+      - "false"
+      - "true"
+  # CustomDomain:
+  #   Description: "(optional) Custom domain name for the app. This will affect SERVER_NAME, WP_HOME and WP_SITEURL."
+  #   Type: String
+  #   Default: ""
+  CustomSSLCertificateArn:
+    Description: "(optional) SSL Certificate ARN to be used with the custom domain name."
+    Type: String
+    Default: ""
+  AdminUsername:
+    Description: "Username of admin account"
+    Type: String
+  AdminPassword:
+    Description: "Password of admin account"
+    Type: String
+    NoEcho: 'true'
+  Active:
+    Description: "If the service is 'turned on'. Off services will retain data but will not have containers/load balancers."
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+Mappings:
+  EnvironmentMap:
+    development:
+      HostedZone: dev.wp.dsd.io.
+      Hostname: dev.wp.dsd.io
+      AWSLogGroup: wp-dev
+      ECSCluster: wp-dev
+      SSLCertificateArn:  arn:aws:acm:eu-west-2:613903586696:certificate/006ac123-c8b7-4f47-ac49-2dcbc6c6bd45
+      ELBSubnet1: subnet-0378637b
+      ELBSubnet2: subnet-c1fbc78b
+      ELBSecurityGroup: sg-d86b93b1
+      TargetGroupVPC: vpc-f1857398
+    staging:
+      HostedZone: staging.wp.dsd.io.
+      Hostname: staging.wp.dsd.io
+      AWSLogGroup: wp-staging
+      ECSCluster: wp-staging
+      SSLCertificateArn:  arn:aws:acm:eu-west-2:613903586696:certificate/9b35290e-dd85-4a10-b084-956c187ca6cd
+      ELBSubnet1: subnet-5d7f6425
+      ELBSubnet2: subnet-7ff4c835
+      ELBSecurityGroup: sg-986b93f1
+      TargetGroupVPC: vpc-38827451
+    production:
+      HostedZone: prod.wp.dsd.io.
+      Hostname: prod.wp.dsd.io
+      AWSLogGroup: wp-production
+      ECSCluster: wp-production
+      SSLCertificateArn:  arn:aws:acm:eu-west-2:613903586696:certificate/3a60a3f5-a250-42d3-8af0-ae24bfee13eb
+      ELBSubnet1: subnet-297f6451
+      ELBSubnet2: subnet-29f4c863
+      ELBSecurityGroup: sg-d66b93bf
+      TargetGroupVPC: vpc-e282748b
+Outputs:
+  DNSName:
+    Description: "DNS name of the service. Use this directly or as a CNAME."
+    Value: !If [ IsActive, !Ref DNSRecord, 'None' ]
+Conditions:
+  UseCustomDomain: !Not [ !Equals [ !Ref CustomDomain, "" ] ]
+  UseCustomSSLCertificateArn: !Not [ !Equals [ !Ref CustomSSLCertificateArn, "" ] ]
+  IsActive: !Or
+    - !Equals [ !Ref Active, "true" ]
+    - !Equals [ !Ref Environment, "production" ]
+  HasS3: !Equals [ !Ref RequiresS3, "true" ] 
+Resources:
+  ##
+  # ECS task & service
+  ##
+  WebTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    DependsOn:
+      - StorageUserAccessKey
+    Properties:
+      ContainerDefinitions:
+        - Name: web
+          Essential: 'true'
+          Image: !Ref DockerImage
+          Memory: '300'
+          Privileged: 'true'
+          PortMappings:
+            - ContainerPort: '80'
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !FindInMap [ EnvironmentMap, !Ref Environment, AWSLogGroup ]
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: !Ref AppName
+          Environment:
+            - Name: AWS_ACCESS_KEY_ID
+              Value: !Ref StorageUserAccessKey
+            - Name: AWS_SECRET_ACCESS_KEY
+              Value: !GetAtt StorageUserAccessKey.SecretAccessKey
+            - Name: AWS_S3_BUCKET
+              Value: !Ref Storage
+            - Name: AWS_DEFAULT_REGION
+              Value: !Ref AWS::Region
+            - Name: SNS_TOPIC
+              Value: !Ref StorageTopic
+            - Name: DB_HOST
+              Value: !Ref DbHost
+            - Name: DB_NAME
+              Value: !Ref DbName
+            - Name: DB_USER
+              Value: !Ref DbUsername
+            - Name: DB_PASSWORD
+              Value: !Ref DbPassword
+            - Name: DB_PORT
+              Value: !Ref DbPort
+            - Name: LB_IP_RANGE
+              Value: 10.0.0.0/16
+            - Name: SERVER_NAME
+              Value: !If [ UseCustomDomain, !Ref CustomDomain, !Join [ '', [ !Ref AppName, '.', !FindInMap [ EnvironmentMap, !Ref Environment, Hostname ] ] ] ]
+      Family: !Ref AWS::StackName
+  WebService:
+    Condition: IsActive
+    Type: AWS::ECS::Service
+    DependsOn:
+      - TargetGroup
+      - WebTaskDefinition
+      - HttpListener
+    Properties:
+      Cluster: !FindInMap [ EnvironmentMap, !Ref Environment, ECSCluster ]
+      DesiredCount: '2'
+      LoadBalancers:
+        - ContainerName: web
+          ContainerPort: '80'
+          TargetGroupArn: !Ref TargetGroup
+      Role: ecsServiceRole
+      TaskDefinition: !Ref WebTaskDefinition
+  ##
+  # Uploads storage
+  ##
+  Storage:
+    Condition: HasS3
+    Type: AWS::S3::Bucket
+    Properties:
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: "Delete old backup versions after 30 days"
+            NoncurrentVersionExpirationInDays: 30
+            Status: Enabled
+  StorageBucketPolicyPublic:
+    Condition: HasS3
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref Storage
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action: "s3:GetObject"
+            Effect: "Allow"
+            Resource: !Join [ '', [ 'arn:aws:s3:::', !Ref Storage, '/uploads/*' ] ]
+            Principal: "*"
+  StorageUser:
+    Type: AWS::IAM::User
+    Properties:
+      Groups:
+        - WordPress
+      Policies:
+        - PolicyName: s3Access
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Action:
+                  - s3:AbortMultipartUpload
+                  - s3:DeleteObject
+                  - s3:DeleteObjectVersion
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:ListMultipartUploadParts
+                  - s3:PutObject
+                  - s3:RestoreObject
+                  - s3:ListBucket
+                Effect: Allow
+                Resource:
+                  - !Join [ '', [ 'arn:aws:s3:::', !Ref Storage ] ]
+                  - !Join [ '', [ 'arn:aws:s3:::', !Ref Storage, '/*' ] ]              
+  StorageUserAccessKey:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName: !Ref StorageUser
+  ##
+  # Load Balancer
+  ##
+  LoadBalancer:
+    Condition: IsActive
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Scheme: 'internet-facing'
+      SecurityGroups:
+        - !FindInMap [ EnvironmentMap, !Ref Environment, ELBSecurityGroup ]
+      Subnets:
+        - !FindInMap [ EnvironmentMap, !Ref Environment, ELBSubnet1 ]
+        - !FindInMap [ EnvironmentMap, !Ref Environment, ELBSubnet2 ]
+  TargetGroup:
+    Condition: IsActive
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    DependsOn:
+      - LoadBalancer
+    Properties:
+      Protocol: HTTP
+      Port: '80'
+      VpcId: !FindInMap [ EnvironmentMap, !Ref Environment, TargetGroupVPC ]
+      HealthCheckPath: "/"
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: 20
+  HttpListener:
+    Condition: IsActive
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    DependsOn:
+      - TargetGroup
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: '80'
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+  HttpsListener:
+    Condition: IsActive
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    DependsOn:
+      - TargetGroup
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: '443'
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: !If [ UseCustomSSLCertificateArn, !Ref CustomSSLCertificateArn, !FindInMap [ EnvironmentMap, !Ref Environment, SSLCertificateArn ] ]
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+  ##
+  # DNS record
+  ##
+  DNSRecord:
+    Condition: IsActive
+    Type: AWS::Route53::RecordSet
+    DependsOn:
+      - LoadBalancer
+    Properties:
+      HostedZoneName: !FindInMap [ EnvironmentMap, !Ref Environment, HostedZone ]
+      Name: !Join [ '', [ !Ref AppName, '.', !FindInMap [ EnvironmentMap, !Ref Environment, Hostname ], '.' ] ]
+      Type: "A"
+      AliasTarget:
+        DNSName: !GetAtt LoadBalancer.DNSName
+        HostedZoneId: !GetAtt LoadBalancer.CanonicalHostedZoneID

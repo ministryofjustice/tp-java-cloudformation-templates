@@ -1,0 +1,42 @@
+[
+  {
+    "ParameterKey": "ECSCluster",
+    "ParameterValue": "wordpress"
+  }, 
+  {
+    "ParameterKey": "SSLCertificateArn",
+    "ParameterValue": ""
+  },
+  {
+    "ParameterKey": "DockerImage",
+    "ParameterValue": ""
+  },
+  {
+    "ParameterKey": "DbHost",
+    "ParameterValue": ""
+  },
+  {
+    "ParameterKey": "DbName",
+    "ParameterValue": ""
+  },
+  {
+    "ParameterKey": "DbUsername",
+    "ParameterValue": ""
+  },
+  {
+    "ParameterKey": "DbPassword",
+    "ParameterValue": ""
+  },
+  {
+    "ParameterKey": "DbPort",
+    "ParameterValue": ""
+  },
+  {
+    "ParameterKey": "RequiresS3",
+    "ParameterValue": ""
+  },
+  {
+    "ParameterKey": "Enviroment",
+    "ParameterValue": ""
+  }
+]
