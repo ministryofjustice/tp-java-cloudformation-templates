@@ -136,8 +136,6 @@ Resources:
               Value: !Ref Storage
             - Name: AWS_DEFAULT_REGION
               Value: !Ref AWS::Region
-            - Name: SNS_TOPIC
-              Value: !Ref StorageTopic
             - Name: DB_HOST
               Value: !Ref DbHost
             - Name: DB_NAME
