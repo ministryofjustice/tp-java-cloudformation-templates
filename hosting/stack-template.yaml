@@ -120,7 +120,7 @@ Resources:
           Memory: '300'
           Privileged: 'true'
           PortMappings:
-            - ContainerPort: '80'
+            - ContainerPort: '8080'
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -167,7 +167,7 @@ Resources:
       DesiredCount: '2'
       LoadBalancers:
         - ContainerName: web
-          ContainerPort: '80'
+          ContainerPort: '8080'
           TargetGroupArn: !Ref TargetGroup
       Role: ecsServiceRole
       TaskDefinition: !Ref WebTaskDefinition
