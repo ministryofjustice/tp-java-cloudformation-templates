@@ -110,8 +110,8 @@ Resources:
   ##
   WebTaskDefinition:
     Type: AWS::ECS::TaskDefinition
-    DependsOn:
-      - StorageUserAccessKey
+    # DependsOn:
+    #   - StorageUserAccessKey
     Properties:
       ContainerDefinitions:
         - Name: web
@@ -129,11 +129,11 @@ Resources:
               awslogs-stream-prefix: !Ref AppName
           Environment:
             - Name: AWS_ACCESS_KEY_ID
-              Value: !Ref StorageUserAccessKey
+              Value: !If [ HasS3, !Ref StorageUserAccessKey, "" ]
             - Name: AWS_SECRET_ACCESS_KEY
-              Value: !GetAtt StorageUserAccessKey.SecretAccessKey
+              Value: !If [ HasS3, !GetAtt StorageUserAccessKey.SecretAccessKey, "" ]
             - Name: AWS_S3_BUCKET
-              Value: !Ref Storage
+              Value: !If [ HasS3, !Ref Storage, "" ]
             - Name: AWS_DEFAULT_REGION
               Value: !Ref AWS::Region
             - Name: DB_HOST
@@ -198,6 +198,7 @@ Resources:
             Resource: !Join [ '', [ 'arn:aws:s3:::', !Ref Storage, '/uploads/*' ] ]
             Principal: "*"
   StorageUser:
+    Condition: HasS3
     Type: AWS::IAM::User
     Properties:
       Groups:
@@ -222,6 +223,7 @@ Resources:
                   - !Join [ '', [ 'arn:aws:s3:::', !Ref Storage ] ]
                   - !Join [ '', [ 'arn:aws:s3:::', !Ref Storage, '/*' ] ]              
   StorageUserAccessKey:
+    Condition: HasS3
     Type: AWS::IAM::AccessKey
     Properties:
       UserName: !Ref StorageUser
