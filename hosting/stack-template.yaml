@@ -117,7 +117,8 @@ Resources:
         - Name: web
           Essential: 'true'
           Image: !Ref DockerImage
-          Memory: '300'
+          Memory: 1500
+          MemoryReservation: 750
           Privileged: 'true'
           PortMappings:
             - ContainerPort: '8080'
