@@ -234,7 +234,11 @@ Resources:
   LoadBalancer:
     Condition: IsActive
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+
     Properties:
+      LBCookieStickinessPolicy:
+        PolicyName : "StickyPolicy"
+        CookieExpirationPeriod: 10800
       Scheme: 'internet-facing'
       SecurityGroups:
         - !FindInMap [ EnvironmentMap, !Ref Environment, ELBSecurityGroup ]
@@ -263,6 +267,8 @@ Resources:
       LoadBalancerArn: !Ref LoadBalancer
       Port: '80'
       Protocol: HTTP
+      PolicyNames:
+        - "StickyPolicy"
       DefaultActions:
         - Type: forward
           TargetGroupArn: !Ref TargetGroup
@@ -275,6 +281,8 @@ Resources:
       LoadBalancerArn: !Ref LoadBalancer
       Port: '443'
       Protocol: HTTPS
+      PolicyNames:
+        - "StickyPolicy"
       Certificates:
         - CertificateArn: !If [ UseCustomSSLCertificateArn, !Ref CustomSSLCertificateArn, !FindInMap [ EnvironmentMap, !Ref Environment, SSLCertificateArn ] ]
       DefaultActions:
