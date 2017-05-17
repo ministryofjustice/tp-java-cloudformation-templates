@@ -148,9 +148,9 @@ Resources:
             - Name: DB_PORT
               Value: !Ref DbPort
             - Name: ADMIN_USER
-              Value: AdminUsername
+              Value: !Ref AdminUsername
             - Name: ADMIN_PASS
-              Value: AdminPassword
+              Value: !Ref AdminPassword
             - Name: LB_IP_RANGE
               Value: 10.0.0.0/16
             - Name: SERVER_NAME
