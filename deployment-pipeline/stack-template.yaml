@@ -65,7 +65,7 @@ Resources:
                 Version: 1
               Configuration:
                 Owner: ministryofjustice
-                Repo: wp-cloudformation-templates
+                Repo: tp-java-cloudformation-templates
                 Branch: master
                 OAuthToken: !Ref GitHubToken
               RunOrder: 1
@@ -79,8 +79,8 @@ Resources:
                 Version: 1
               Configuration:
                 Owner: ministryofjustice
-                Repo: wp-cloudformation-params
-                Branch: master
+                Repo: tp-java-cloudformation-params
+                Branch: !Ref AppName
                 OAuthToken: !Ref GitHubToken
               RunOrder: 1
               OutputArtifacts:
@@ -292,7 +292,7 @@ Resources:
                   - "ecr:CompleteLayerUpload"
                   - "ecr:PutImage"
                 Effect: Allow
-                Resource: !Join [ '', [ 'arn:aws:ecr:eu-west-2:', !Ref 'AWS::AccountId', ':repository/wp/', !Ref AppName ] ]
+                Resource: !Join [ '', [ 'arn:aws:ecr:eu-west-2:', !Ref 'AWS::AccountId', ':repository/tp-java/', !Ref AppName ] ]
               - Action: "ecr:GetAuthorizationToken"
                 Effect: Allow
                 Resource: "*"
