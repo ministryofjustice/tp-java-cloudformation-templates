@@ -24,13 +24,13 @@ Parameters:
   DbPort:
     Description: "Database tcp port"
     Type: String
-  From-id:
+  Fromid:
     Description: "From email address"
     Type: String
-  SMTP_User:
+  SMTPUser:
     Description: "SMTP Username"
     Type: String
-  SMTP_PWD:
+  SMTPPWD:
     Description: "SMTP password"
     Type: String
   Recipients:
