@@ -24,18 +24,6 @@ Parameters:
   DbPort:
     Description: "Database tcp port"
     Type: String
-  Fromid:
-    Description: "From email address"
-    Type: String
-  SMTPUser:
-    Description: "SMTP Username"
-    Type: String
-  SMTPPWD:
-    Description: "SMTP password"
-    Type: String
-  Recipients:
-    Description: "email Recipients"
-    Type: String
   Environment:
     Description: "The environment this application should run in."
     Type: String
